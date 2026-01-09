@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Snake Game: Neon Edition</title>
+    <style>
+        :root {
+            /* Theme Colors */
+            --bg-color: #0d0d15;
+            --surface-color: #1a1a3a;
+            --border-glow: #f1c40f; 
+            --accent-color: #f1c40f;
+            --danger-color: #ff4757;
+            --ui-primary: #00d1ff;
+
+            /* Snake Specific Colors (High Contrast) */
+            --snake-head: #00ff88; /* Bright Neon Green */
+            --snake-body-even: #00cc6a;
+            --snake-body-odd: #00a355;
+            --snake-eye: #ffffff;
+            --snake-tongue: #ff0055;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            flex-direction: column;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        canvas {
+            border: 4px solid var(--border-glow);
+            box-shadow: 0 0 30px rgba(241, 196, 15, 0.2);
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            outline: none;
+            max-width: 90vw;
+            max-height: 45vh;
+        }
+
+        .score-board {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: var(--ui-primary);
+            font-weight: bold;
+            display: none;
+            gap: 20px;
+        }
+
+        #speedLevel { color: var(--accent-color); }
+
+        .controls-ui { margin-bottom: 10px; display: none; }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--bg-color);
+            background-color: var(--ui-primary);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 200px;
+        }
+
+        button:hover { background-color: #5effff; }
+
+        button.active {
+            background-color: var(--accent-color) !important;
+            color: #000 !important;
+        }
+
+        /* Joystick Container */
+        #joystickContainer {
+            display: none;
+            position: relative;
+            width: 140px;
+            height: 140px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            margin-top: 20px;
+            touch-action: none;
+            border: 2px solid rgba(0, 209, 255, 0.3);
+        }
+
+        #joystickKnob {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: var(--ui-primary);
+            border-radius: 50%;
+            top: 40px;
+            left: 40px;
+            box-shadow: 0 0 15px rgba(0, 209, 255, 0.5);
+            pointer-events: none;
+        }
+
+        #gameContainer { position: relative; }
+
+        .overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(13, 13, 21, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 12px;
+            z-index: 20;
+            text-align: center;
+            backdrop-filter: blur(6px);
+        }
+
+        h1 {
+            color: var(--ui-primary);
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(0, 209, 255, 0.6);
+        }
+
+        .hs-container {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--accent-color);
+            border-radius: 10px;
+            width: 180px;
+        }
+
+        .hs-row {
+            color: var(--accent-color);
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        #pauseOverlay, #gameOverOverlay, #settingsMenu, #highScoreMenu { display: none; }
+
+        .menu-btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        #levelUpToast {
+            position: absolute;
+            top: 40%; 
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            color: #f1c40f;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: bold;
+            display: none;
+            z-index: 100;
+            font-size: 1.2rem;
+            white-space: nowrap;
+            border: 2px solid #f1c40f;
+            pointer-events: none;
+        }
+
+        #funnyGameOverText {
+            font-style: italic;
+            color: var(--accent-color);
+            margin: 10px 0 15px 0;
+            max-width: 85%;
+            font-size: 1.1rem;
+            line-height: 1.3;
+        }
+
+        /* Footer Style */
+        .footer {
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .footer b {
+            color: var(--ui-primary);
+        }
+
+        @media (max-height: 600px) {
+            h1 { font-size: 1.8rem; }
+            button { padding: 8px 16px; width: 160px; }
+            #joystickContainer { width: 100px; height: 100px; }
+            #joystickKnob { width: 40px; height: 40px; top: 30px; left: 30px; }
+            .footer { margin-top: 15px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="score-board" id="gameUI_top">
+        <span>SCORE: <span id="scoreVal">0</span></span>
+        <span id="speedLevel">LEVEL: 0</span>
+    </div>
+    
+    <div class="controls-ui" id="gameUI_controls">
+        <button id="pauseBtn" style="width: auto;">PAUSE</button>
+    </div>
+
+    <div id="gameContainer">
+        <canvas id="snakeGame" width="400" height="400" tabindex="1"></canvas>
+        <div id="levelUpToast">LEVEL UP! 🚀</div>
+
+        <div id="mainMenu" class="overlay">
+            <h1>Binary Snake</h1>
+            <div class="menu-btn-group">
+                <button id="startBtn">Play Game</button>
+                <button id="settingsBtn">Difficulty</button>
+                <button id="highScoreBtn" style="background-color: transparent; color: var(--accent-color); border: 2px solid var(--accent-color);">High Scores 🏆</button>
+            </div>
+        </div>
+
+        <div id="highScoreMenu" class="overlay">
+            <h2 style="color: var(--accent-color);">BEST SCORES</h2>
+            <div class="hs-container">
+                <div class="hs-row"><span>EASY:</span> <span id="best_easy">0</span></div>
+                <div class="hs-row"><span>HARD:</span> <span id="best_hard">0</span></div>
+                <div class="hs-row"><span>PRO:</span> <span id="best_pro">0</span></div>
+            </div>
+            <br>
+            <button id="hsBackBtn" style="width: 120px; background: #444; color: white;">Back</button>
+        </div>
+
+        <div id="settingsMenu" class="overlay">
+            <h2>SELECT MODE</h2>
+            <div class="menu-btn-group">
+                <button id="easyBtn">Easy</button>
+                <button id="hardBtn">Hard</button>
+                <button id="proBtn">Pro</button>
+                <button id="backBtn" style="background: transparent; color: white; border: 1px solid white; margin-top: 10px;">Back</button>
+            </div>
+        </div>
+
+        <div id="pauseOverlay" class="overlay">
+            <h2>PAUSED</h2>
+            <div class="menu-btn-group">
+                <button id="resumeBtn">Resume</button>
+                <button id="pauseToMenuBtn">Main Menu</button>
+            </div>
+        </div>
+
+        <div id="gameOverOverlay" class="overlay">
+            <h2 style="color: var(--danger-color); font-size: 2rem; margin-bottom: 5px;">GAME OVER</h2>
+            <p id="funnyGameOverText"></p>
+            <p id="finalScoreText" style="font-size: 1.1rem; margin: 10px 0;"></p>
+            <p id="newRecordText" style="color: var(--accent-color); font-weight: bold; display: none;">NEW RECORD! 🏆</p>
+            <div class="menu-btn-group">
+                <button id="restartBtn">Try Again</button>
+                <button id="toMenuBtn">Main Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Virtual Joystick -->
+    <div id="joystickContainer">
+        <div id="joystickKnob"></div>
+    </div>
+
+    <div class="footer">
+        Developed by <b>Mozahid Hossain Rabbi</b>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const canvas = document.getElementById("snakeGame");
+            const ctx = canvas.getContext("2d");
+            const scoreElement = document.getElementById("scoreVal");
+            const speedLevelElement = document.getElementById("speedLevel");
+            const levelUpToast = document.getElementById("levelUpToast");
+            const joystickCont = document.getElementById("joystickContainer");
+            const joystickKnob = document.getElementById("joystickKnob");
+            
+            // CSS Variables access
+            const style = getComputedStyle(document.documentElement);
+            const SNAKE_HEAD_COLOR = style.getPropertyValue('--snake-head').trim();
+            const SNAKE_BODY_EVEN = style.getPropertyValue('--snake-body-even').trim();
+            const SNAKE_BODY_ODD = style.getPropertyValue('--snake-body-odd').trim();
+            const SNAKE_EYE = style.getPropertyValue('--snake-eye').trim();
+            const SNAKE_TONGUE = style.getPropertyValue('--snake-tongue').trim();
+
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            function playEatSound() {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            }
+
+            function playGameOverSound() {
+                const startTime = audioCtx.currentTime;
+                const slide = audioCtx.createOscillator();
+                const slideGain = audioCtx.createGain();
+                slide.type = 'triangle';
+                slide.frequency.setValueAtTime(100, startTime);
+                slide.frequency.linearRampToValueAtTime(800, startTime + 0.3);
+                slide.frequency.exponentialRampToValueAtTime(50, startTime + 1.2);
+                slideGain.gain.setValueAtTime(0.1, startTime);
+                slideGain.gain.linearRampToValueAtTime(0.1, startTime + 0.8);
+                slideGain.gain.linearRampToValueAtTime(0, startTime + 1.2);
+                slide.connect(slideGain); slideGain.connect(audioCtx.destination);
+                slide.start(startTime); slide.stop(startTime + 1.2);
+
+                const wahNotes = [{f: 220, s: 1.3}, {f: 196, s: 1.7}, {f: 174, s: 2.1}, {f: 146, s: 2.5}];
+                wahNotes.forEach((note) => {
+                    const osc = audioCtx.createOscillator();
+                    const filter = audioCtx.createBiquadFilter();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(note.f, startTime + note.s);
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(100, startTime + note.s);
+                    filter.frequency.exponentialRampToValueAtTime(2000, startTime + note.s + 0.1);
+                    filter.frequency.exponentialRampToValueAtTime(100, startTime + note.s + 0.3);
+                    gain.gain.setValueAtTime(0, startTime + note.s);
+                    gain.gain.linearRampToValueAtTime(0.08, startTime + note.s + 0.05);
+                    gain.gain.linearRampToValueAtTime(0, startTime + note.s + 0.35);
+                    osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                    osc.start(startTime + note.s); osc.stop(startTime + note.s + 0.4);
+                });
+            }
+
+            const screens = {
+                main: document.getElementById("mainMenu"),
+                settings: document.getElementById("settingsMenu"),
+                highScore: document.getElementById("highScoreMenu"),
+                pause: document.getElementById("pauseOverlay"),
+                gameOver: document.getElementById("gameOverOverlay")
+            };
+
+            const box = 20; 
+            const gridWidth = canvas.width / box;
+            const gridHeight = canvas.height / box;
+
+            let score = 0;
+            let bestScores = {
+                easy: parseInt(localStorage.getItem('snakeBest_easy')) || 0,
+                hard: parseInt(localStorage.getItem('snakeBest_hard')) || 0,
+                pro: parseInt(localStorage.getItem('snakeBest_pro')) || 0
+            };
+
+            const foodsList = ["🍎", "🍌", "🍇", "🍓", "🍍", "🍒", "🍔", "🍕", "🍩"];
+            const levelUpMessages = ["Sabash!", "Level Up!", "Ohho! Speed bere gelo!", "Besh besh!"];
+            const funnyMessages = [
+                "Saap ta ki apnar kothay chollo na? 😂", 
+                "Areh! Level up hobar agei sesh?",
+                "Snake: 'Bhai, ektu toh dekhe chalan!' 🐍",
+                "Saap bollo: 'Bhai, ami ki rasta haray fellam?' 😵"
+            ];
+
+            let currentDifficultyMode = localStorage.getItem('selectedDifficulty') || 'hard';
+            let baseSpeed = 200, currentSpeed = 200, speedMultiplier = 12;
+            let gameInterval, isPaused = false, gameActive = false;
+            let snake, food, d, lastD;
+            let isMouthOpen = false, tonguePhase = 0;
+
+            let joystickActive = false;
+            let centerX, centerY;
+            const maxRadius = 40;
+
+            function initJoystick() {
+                const rect = joystickCont.getBoundingClientRect();
+                centerX = rect.width / 2;
+                centerY = rect.height / 2;
+            }
+
+            function handleJoystickMove(e) {
+                if (!joystickActive) return;
+                const touch = e.touches ? e.touches[0] : e;
+                const rect = joystickCont.getBoundingClientRect();
+                let x = touch.clientX - rect.left - centerX;
+                let y = touch.clientY - rect.top - centerY;
+
+                const dist = Math.sqrt(x*x + y*y);
+                if (dist > maxRadius) {
+                    x *= maxRadius / dist;
+                    y *= maxRadius / dist;
+                }
+
+                joystickKnob.style.transform = `translate(${x}px, ${y}px)`;
+
+                if (dist > 15) { 
+                    const angle = Math.atan2(y, x) * 180 / Math.PI;
+                    if (angle > -45 && angle <= 45) changeDir("RIGHT");
+                    else if (angle > 45 && angle <= 135) changeDir("DOWN");
+                    else if (angle > 135 || angle <= -135) changeDir("LEFT");
+                    else if (angle > -135 && angle <= -45) changeDir("UP");
+                }
+            }
+
+            joystickCont.addEventListener('touchstart', (e) => { joystickActive = true; handleJoystickMove(e); });
+            window.addEventListener('touchmove', handleJoystickMove, { passive: false });
+            window.addEventListener('touchend', () => {
+                joystickActive = false;
+                joystickKnob.style.transform = `translate(0px, 0px)`;
+            });
+
+            function updateBestScoreUI() {
+                document.getElementById("best_easy").innerText = bestScores.easy;
+                document.getElementById("best_hard").innerText = bestScores.hard;
+                document.getElementById("best_pro").innerText = bestScores.pro;
+            }
+
+            function setDifficulty(mode) {
+                currentDifficultyMode = mode;
+                localStorage.setItem('selectedDifficulty', mode);
+                document.querySelectorAll('#settingsMenu button').forEach(b => b.classList.remove('active'));
+                if (mode === 'easy') { baseSpeed = 300; speedMultiplier = 10; document.getElementById('easyBtn').classList.add('active'); }
+                else if (mode === 'hard') { baseSpeed = 200; speedMultiplier = 12; document.getElementById('hardBtn').classList.add('active'); }
+                else if (mode === 'pro') { baseSpeed = 120; speedMultiplier = 6; document.getElementById('proBtn').classList.add('active'); }
+                currentSpeed = baseSpeed;
+            }
+
+            function initGame() {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                score = 0; currentSpeed = baseSpeed;
+                snake = [{ x: 10 * box, y: 10 * box }];
+                d = "RIGHT"; lastD = "RIGHT";
+                gameActive = true; isPaused = false;
+                scoreElement.innerText = score;
+                speedLevelElement.innerText = "LEVEL: 0";
+                Object.values(screens).forEach(s => s.style.display = "none");
+                levelUpToast.style.display = "none";
+                
+                document.getElementById("gameUI_top").style.display = "flex";
+                document.getElementById("gameUI_controls").style.display = "block";
+                joystickCont.style.display = "block";
+                initJoystick();
+                
+                generateFood();
+                if(gameInterval) clearInterval(gameInterval);
+                gameInterval = setInterval(draw, currentSpeed);
+            }
+
+            function generateFood() {
+                let validPos = false, newFoodX, newFoodY;
+                while (!validPos) {
+                    newFoodX = Math.floor(Math.random() * gridWidth) * box;
+                    newFoodY = Math.floor(Math.random() * gridHeight) * box;
+                    validPos = !snake.some(part => part.x === newFoodX && part.y === newFoodY);
+                }
+                food = { x: newFoodX, y: newFoodY, emoji: foodsList[Math.floor(Math.random() * foodsList.length)] };
+            }
+
+            function draw() {
+                if (!gameActive || isPaused) return;
+                ctx.fillStyle = "#1a1a3a";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw Grid
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.03)";
+                ctx.lineWidth = 1;
+                for(let i=0; i<canvas.width; i+=box) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke(); }
+                for(let i=0; i<canvas.height; i+=box) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); ctx.stroke(); }
+
+                // Food
+                ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(food.emoji, food.x + box/2, food.y + box/2 + 2);
+
+                let headX = snake[0].x, headY = snake[0].y;
+                let nextX = headX, nextY = headY;
+                if (d === "LEFT") nextX -= box; else if (d === "UP") nextY -= box;
+                else if (d === "RIGHT") nextX += box; else if (d === "DOWN") nextY += box;
+
+                isMouthOpen = (nextX === food.x && nextY === food.y);
+
+                snake.forEach((part, i) => {
+                    const cx = part.x + box / 2, cy = part.y + box / 2;
+                    if (i === 0) {
+                        ctx.fillStyle = SNAKE_HEAD_COLOR;
+                        ctx.shadowBlur = 10;
+                        ctx.shadowColor = SNAKE_HEAD_COLOR;
+                        
+                        if (isMouthOpen) {
+                            ctx.strokeStyle = SNAKE_TONGUE; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+                            ctx.save(); ctx.translate(cx, cy);
+                            if (d === "LEFT") ctx.rotate(Math.PI);
+                            if (d === "UP") ctx.rotate(-Math.PI/2);
+                            if (d === "DOWN") ctx.rotate(Math.PI/2);
+                            tonguePhase = (tonguePhase + 1) % 4;
+                            const tLen = 6 + tonguePhase; 
+                            ctx.beginPath(); ctx.moveTo(box/2 - 2, 0); ctx.lineTo(box/2 + tLen, 0);
+                            ctx.lineTo(box/2 + tLen + 4, -3); ctx.moveTo(box/2 + tLen, 0);
+                            ctx.lineTo(box/2 + tLen + 4, 3); ctx.stroke(); ctx.restore();
+
+                            ctx.save(); ctx.translate(cx, cy);
+                            if (d === "LEFT") ctx.rotate(Math.PI);
+                            if (d === "UP") ctx.rotate(-Math.PI/2);
+                            if (d === "DOWN") ctx.rotate(Math.PI/2);
+                            ctx.beginPath(); ctx.arc(0, 0, box/2, -Math.PI/2, -0.5); ctx.lineTo(0,0); ctx.fill();
+                            ctx.beginPath(); ctx.arc(0, 0, box/2, 0.5, Math.PI/2); ctx.lineTo(0,0); ctx.fill();
+                            ctx.beginPath(); ctx.arc(0, 0, box/2, Math.PI/2, 1.5 * Math.PI); ctx.fill(); ctx.restore();
+                        } else {
+                            ctx.beginPath(); ctx.arc(cx, cy, box / 2, 0, Math.PI * 2); ctx.fill();
+                        }
+                        
+                        // Eyes
+                        const drawEye = (ex, ey, dir) => {
+                            ctx.shadowBlur = 0;
+                            ctx.fillStyle = SNAKE_EYE; ctx.beginPath(); ctx.ellipse(ex, ey, 3.8, 4.8, 0, 0, Math.PI * 2); ctx.fill();
+                            ctx.fillStyle = "#000"; let px = ex, py = ey;
+                            if(dir === "RIGHT") px += 1.5; else if(dir === "LEFT") px -= 1.5;
+                            else if(dir === "UP") py -= 1.8; else if(dir === "DOWN") py += 1.8;
+                            ctx.beginPath(); ctx.arc(px, py, 2.2, 0, Math.PI * 2); ctx.fill();
+                        };
+                        if (d === "RIGHT" || d === "LEFT") {
+                            let offsetX = (d === "RIGHT") ? 10 : 6;
+                            drawEye(part.x + offsetX, part.y + 6, d); drawEye(part.x + offsetX, part.y + 14, d);
+                        } else {
+                            let offsetY = (d === "DOWN") ? 13 : 6;
+                            drawEye(part.x + 6, part.y + offsetY, d); drawEye(part.x + 14, part.y + offsetY, d);
+                        }
+                    } else {
+                        ctx.fillStyle = i % 2 === 0 ? SNAKE_BODY_EVEN : SNAKE_BODY_ODD;
+                        ctx.shadowBlur = 5;
+                        ctx.shadowColor = SNAKE_BODY_EVEN;
+                        ctx.beginPath(); ctx.arc(cx, cy, box/2.2, 0, Math.PI * 2); ctx.fill();
+                    }
+                    ctx.shadowBlur = 0;
+                });
+
+                if (nextX === food.x && nextY === food.y) {
+                    score++; playEatSound(); scoreElement.innerText = score; generateFood();
+                    let currentLevel = Math.floor(score / 5);
+                    speedLevelElement.innerText = `LEVEL: ${currentLevel}`;
+                    if(score > 0 && score % 5 === 0) {
+                        clearInterval(gameInterval);
+                        currentSpeed = Math.max(50, baseSpeed - (currentLevel * speedMultiplier));
+                        gameInterval = setInterval(draw, currentSpeed);
+                        levelUpToast.innerText = levelUpMessages[Math.floor(Math.random() * levelUpMessages.length)];
+                        levelUpToast.style.display = "block";
+                        setTimeout(() => levelUpToast.style.display = "none", 2000);
+                    }
+                } else { snake.pop(); }
+
+                let newHead = { x: nextX, y: nextY };
+                if (nextX < 0 || nextX >= canvas.width || nextY < 0 || nextY >= canvas.height || 
+                    snake.some(p => p.x === newHead.x && p.y === newHead.y)) {
+                    gameActive = false; clearInterval(gameInterval); playGameOverSound(); 
+                    document.getElementById("gameUI_top").style.display = "none";
+                    document.getElementById("gameUI_controls").style.display = "none";
+                    joystickCont.style.display = "none";
+                    let record = (score > bestScores[currentDifficultyMode]);
+                    if (record) { bestScores[currentDifficultyMode] = score; localStorage.setItem('snakeBest_' + currentDifficultyMode, score); }
+                    document.getElementById("funnyGameOverText").innerText = funnyMessages[Math.floor(Math.random() * funnyMessages.length)];
+                    document.getElementById("finalScoreText").innerText = `SCORE: ${score}`;
+                    document.getElementById("newRecordText").style.display = record ? "block" : "none";
+                    screens.gameOver.style.display = "flex";
+                    return;
+                }
+                snake.unshift(newHead); lastD = d;
+            }
+
+            const changeDir = (newD) => {
+                if(newD === "LEFT" && lastD !== "RIGHT") d = "LEFT";
+                if(newD === "UP" && lastD !== "DOWN") d = "UP";
+                if(newD === "RIGHT" && lastD !== "LEFT") d = "RIGHT";
+                if(newD === "DOWN" && lastD !== "UP") d = "DOWN";
+            };
+
+            window.addEventListener("keydown", e => {
+                if(e.code === "Space" && gameActive) { isPaused = !isPaused; screens.pause.style.display = isPaused ? "flex" : "none"; }
+                if(e.key === "ArrowLeft") changeDir("LEFT"); if(e.key === "ArrowUp") changeDir("UP");
+                if(e.key === "ArrowRight") changeDir("RIGHT"); if(e.key === "ArrowDown") changeDir("DOWN");
+            });
+
+            document.getElementById("startBtn").onclick = initGame;
+            document.getElementById("restartBtn").onclick = initGame;
+            document.getElementById("settingsBtn").onclick = () => { screens.main.style.display="none"; screens.settings.style.display="flex"; };
+            document.getElementById("backBtn").onclick = () => { screens.settings.style.display="none"; screens.main.style.display="flex"; };
+            document.getElementById("pauseBtn").onclick = () => { isPaused = true; screens.pause.style.display="flex"; };
+            document.getElementById("resumeBtn").onclick = () => { isPaused = false; screens.pause.style.display="none"; };
+            document.getElementById("toMenuBtn").onclick = () => { screens.gameOver.style.display="none"; screens.main.style.display="flex"; };
+            document.getElementById("pauseToMenuBtn").onclick = () => { screens.pause.style.display="none"; screens.main.style.display="flex"; gameActive = false; joystickCont.style.display = "none"; };
+            document.getElementById("highScoreBtn").onclick = () => { screens.main.style.display="none"; screens.highScore.style.display="flex"; updateBestScoreUI(); };
+            document.getElementById("hsBackBtn").onclick = () => { screens.highScore.style.display="none"; screens.main.style.display="flex"; };
+            document.getElementById("easyBtn").onclick = () => setDifficulty('easy');
+            document.getElementById("hardBtn").onclick = () => setDifficulty('hard');
+            document.getElementById("proBtn").onclick = () => setDifficulty('pro');
+            
+            setDifficulty(currentDifficultyMode);
+        };
+    </script>
+</body>
+</html>
